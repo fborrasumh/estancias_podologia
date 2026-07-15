@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EstancIA · Evaluación de Estancias por voz</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7FAF8; --panel:#FFFFFF; --ink:#152B27; --ink-soft:#4C6560; --line:#DCE7E2;
+  --primary:#0E6B5B; --primary-soft:#E3F1EC; --primary-dark:#0A4F44;
+  --amber:#B96E0B; --amber-soft:#FBF1DF;
+  --red:#BE4438; --red-soft:#FAE9E7;
+  --gray-chip:#8A9B96;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(21,43,39,.06),0 6px 18px rgba(21,43,39,.05);
+  --font-body:"Instrument Sans",system-ui,sans-serif;
+  --font-display:"Bricolage Grotesque",var(--font-body);
+  --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;min-height:100vh}
+header.app{max-width:1040px;margin:0 auto;padding:28px 20px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand h1{font-family:var(--font-display);font-weight:800;font-size:30px;letter-spacing:-.02em;color:var(--primary-dark)}
+.brand h1 span{color:var(--amber)}
+.brand p{color:var(--ink-soft);font-size:13.5px;max-width:560px}
+.badge-cost{font-family:var(--font-mono);font-size:11.5px;background:var(--primary-soft);color:var(--primary-dark);border:1px solid var(--line);padding:6px 10px;border-radius:99px;white-space:nowrap}
+nav.tabs{max-width:1040px;margin:18px auto 0;padding:0 20px;display:flex;gap:6px;border-bottom:1px solid var(--line)}
+nav.tabs button{appearance:none;border:none;background:none;font:inherit;font-weight:600;color:var(--ink-soft);padding:10px 14px;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px}
+nav.tabs button.active{color:var(--primary-dark);border-bottom-color:var(--primary)}
+nav.tabs button .dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--red);margin-left:6px;vertical-align:middle}
+main{max-width:1040px;margin:0 auto;padding:22px 20px 80px;display:grid;gap:18px}
+section.view{display:none;gap:18px}
+section.view.active{display:grid}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.card h2{font-family:var(--font-display);font-weight:700;font-size:18px;margin-bottom:4px;color:var(--primary-dark)}
+.card .hint{color:var(--ink-soft);font-size:13px;margin-bottom:14px}
+label.field{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+input[type=text],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;color:var(--ink);background:#FCFEFD;border:1px solid var(--line);border-radius:10px;padding:9px 11px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(14,107,91,.12)}
+textarea{resize:vertical;min-height:80px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1;min-width:180px}
+button.btn{appearance:none;font:inherit;font-weight:600;border-radius:10px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);transition:filter .12s}
+button.btn:hover{filter:brightness(.97)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+button.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.btn.danger{background:var(--red-soft);border-color:#E4C2BE;color:var(--red)}
+button.btn.ghost{background:none;border-color:transparent;color:var(--primary-dark);text-decoration:underline;padding:6px 8px}
+.btnbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--primary-soft);color:var(--primary-dark)}
+.pill.warn{background:var(--amber-soft);color:var(--amber);border-color:#EAD4AC}
+.pill.err{background:var(--red-soft);color:var(--red);border-color:#E4C2BE}
+.file-drop{border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--ink-soft);font-size:13.5px;cursor:pointer;background:#FCFEFD}
+.file-drop:hover{border-color:var(--primary)}
+.file-drop input{display:none}
+/* rúbrica editable */
+.comp-row{display:grid;grid-template-columns:minmax(140px,1fr) 2fr 34px;gap:8px;margin-bottom:8px;align-items:start}
+.comp-row button{border:none;background:none;color:var(--red);font-size:17px;cursor:pointer;padding-top:8px}
+/* alumnos */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;max-height:180px;overflow:auto}
+.chips .chip{font-size:12.5px;background:#F0F5F3;border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+.chips .chip.done{background:var(--primary-soft);color:var(--primary-dark);text-decoration:line-through;opacity:.75}
+/* grabación — elemento firma */
+.rec-zone{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.rec-btn-wrap{position:relative;width:96px;height:96px;display:grid;place-items:center}
+.rec-btn{position:relative;z-index:2;width:76px;height:76px;border-radius:99px;border:none;cursor:pointer;background:var(--primary);color:#fff;display:grid;place-items:center;box-shadow:var(--shadow)}
+.rec-btn svg{width:30px;height:30px}
+.rec-btn.recording{background:var(--red)}
+.ring{position:absolute;inset:0;border-radius:99px;border:2px solid var(--red);opacity:0;pointer-events:none}
+.recording-on .ring{animation:pulse 1.8s ease-out infinite}
+.recording-on .ring:nth-child(2){animation-delay:.6s}
+.recording-on .ring:nth-child(3){animation-delay:1.2s}
+@keyframes pulse{0%{transform:scale(.75);opacity:.7}100%{transform:scale(1.25);opacity:0}}
+@media (prefers-reduced-motion:reduce){.ring{animation:none!important}}
+.transcript{font-family:var(--font-mono);font-size:13.5px;line-height:1.7;min-height:130px;background:#FCFEFD}
+.interim{font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);min-height:20px;margin-top:4px}
+.rec-status{font-size:12.5px;font-weight:600;text-align:center;margin-top:6px;color:var(--ink-soft)}
+.rec-status.on{color:var(--red)}
+/* validación */
+.eval-card{border:1.5px solid var(--primary);background:linear-gradient(180deg,#F4FAF7,#fff)}
+.level-chips{display:flex;flex-wrap:wrap;gap:6px}
+.level-chip{font-size:12.5px;font-weight:600;border-radius:99px;border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);padding:4px 12px;cursor:pointer}
+.level-chip.sel{color:#fff;border-color:transparent}
+.comp-eval{padding:12px 0;border-bottom:1px solid var(--line)}
+.comp-eval:last-child{border-bottom:none}
+.comp-eval .name{font-weight:600;margin-bottom:6px}
+.evidence{font-size:13px;color:var(--ink-soft);font-style:italic;margin-top:6px}
+.warn-list{background:var(--amber-soft);border:1px solid #EAD4AC;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--amber);margin-top:12px}
+.warn-list ul{margin-left:16px}
+/* resultados */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft)}
+.progress-bar{height:8px;border-radius:99px;background:#E7EEEB;overflow:hidden;margin:8px 0 4px}
+.progress-bar i{display:block;height:100%;background:var(--primary);border-radius:99px;transition:width .3s}
+.small{font-size:12.5px;color:var(--ink-soft)}
+/* toast */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--red)}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:99px;animation:spin .8s linear infinite;vertical-align:-3px;margin-right:7px}
+.btn:not(.primary) .spinner{border-color:rgba(14,107,91,.3);border-top-color:var(--primary)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){.rec-zone{grid-template-columns:1fr}.rec-btn-wrap{margin:0 auto}}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <h1>Estanc<span>IA</span></h1>
+    <p>Evaluación por voz de Estancias con pacientes reales · transcripción gratuita en el navegador (Chrome) + estructuración con gpt-4o-mini</p>
+  </div>
+  <span class="badge-cost">coste ≈ 0,001 € / evaluación</span>
+</header>
+
+<nav class="tabs">
+  <button data-view="config" class="active">1 · Configuración<span id="cfgDot" class="dot" hidden></span></button>
+  <button data-view="evaluar">2 · Evaluar</button>
+  <button data-view="resultados">3 · Resultados y Excel</button>
+</nav>
+
+<main>
+
+<!-- ══════════ CONFIGURACIÓN ══════════ -->
+<section class="view active" id="view-config">
+
+  <div class="card">
+    <h2>Clave API de OpenAI</h2>
+    <p class="hint">Se guarda solo en este navegador (localStorage <code>ia_openai_key</code>, compartida con el resto de apps del catálogo). Solo se usa para estructurar el texto: la transcripción de voz es gratuita.</p>
+    <div class="row">
+      <input type="password" id="apiKey" placeholder="sk-...">
+      <button class="btn primary" style="flex:0" onclick="saveKey()">Guardar clave</button>
+    </div>
+    <div id="keyStatus" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Rúbrica de competencias</h2>
+    <p class="hint">Sube vuestra rúbrica en <b>PDF, DOCX o TXT</b> (o pega/describe el contenido) y la IA la convertirá en una rúbrica estructurada por competencias y niveles. Después podéis editarla a mano. Los archivos .doc antiguos deben convertirse antes a .docx o PDF.</p>
+    <label class="file-drop" id="rubricDrop">
+      <input type="file" id="rubricFile" accept=".pdf,.docx,.txt,.md">
+      📄 Haz clic para subir la rúbrica (PDF · DOCX · TXT)
+    </label>
+    <label class="field">O pega aquí el texto de la rúbrica / describe cómo queréis evaluar</label>
+    <textarea id="rubricText" placeholder="Ej.: Queremos evaluar conocimientos aplicados, técnica, razonamiento clínico, comunicación con el paciente, trabajo en equipo y profesionalismo, con niveles Excelente / Notable / Suficiente / Insuficiente..."></textarea>
+    <div class="btnbar">
+      <button class="btn primary" id="btnGenRubric" onclick="generateRubric()">✨ Generar rúbrica con IA</button>
+      <button class="btn" onclick="loadExampleRubric()">Usar rúbrica de ejemplo</button>
+      <span id="rubricStatus"></span>
+    </div>
+    <div id="rubricEditor" style="margin-top:16px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Lista de alumnos/as</h2>
+    <p class="hint">Sube el Excel oficial del curso (.xlsx o .csv). La app usará esta lista para que la IA identifique en el audio a qué alumno/a se refiere cada nota de voz.</p>
+    <label class="file-drop">
+      <input type="file" id="studentsFile" accept=".xlsx,.xls,.csv">
+      📊 Haz clic para subir el Excel de alumnos
+    </label>
+    <div id="colPicker" hidden style="margin-top:12px">
+      <div class="row">
+        <div>
+          <label class="field">Columna con el nombre *</label>
+          <select id="colName"></select>
+        </div>
+        <div>
+          <label class="field">Columna con apellidos (opcional)</label>
+          <select id="colSurname"></select>
+        </div>
+      </div>
+      <div class="btnbar"><button class="btn primary" onclick="importStudents()">Importar alumnos</button></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="manualStudent" placeholder="Añadir alumno/a manualmente...">
+      <button class="btn" style="flex:0" onclick="addStudent()">Añadir</button>
+    </div>
+    <div id="studentsList" class="chips"></div>
+    <div class="btnbar" id="studentsBar" hidden>
+      <span class="pill" id="studentsCount"></span>
+      <button class="btn ghost" onclick="clearStudents()">Vaciar lista</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Prácticas del curso 2026/2027</h2>
+    <p class="hint">Escribe las prácticas o rotaciones, una por línea. Aparecerán en el desplegable al evaluar.</p>
+    <textarea id="practicasText" placeholder="Práctica 1 · Exploración&#10;Práctica 2 · Historia clínica&#10;..."></textarea>
+    <div class="btnbar"><button class="btn primary" onclick="savePracticas()">Guardar prácticas</button><span id="practicasStatus"></span></div>
+  </div>
+
+</section>
+
+<!-- ══════════ EVALUAR ══════════ -->
+<section class="view" id="view-evaluar">
+
+  <div class="card" id="speechWarning" hidden style="border-color:#EAD4AC;background:var(--amber-soft)">
+    ⚠️ Este navegador no soporta el reconocimiento de voz de Google (Web Speech API). Usa <b>Google Chrome o Microsoft Edge</b>, o escribe/pega la transcripción a mano en el cuadro de texto.
+  </div>
+
+  <div class="card">
+    <h2>Nota de voz de la práctica</h2>
+    <p class="hint">Selecciona la práctica, pulsa el micrófono y resume en voz alta el desempeño del alumno/a <b>diciendo su nombre</b> (la IA lo detectará en la lista). Recuerda: <b>no menciones datos identificativos de pacientes</b>. El texto es editable antes de procesar.</p>
+    <div class="row">
+      <div><label class="field">Práctica *</label><select id="selPractica"></select></div>
+      <div><label class="field">Curso *</label><select id="selCurso"><option>3º</option><option>4º</option></select></div>
+      <div><label class="field">Fecha</label><input type="date" id="selFecha"></div>
+    </div>
+    <div id="practicaProgress" style="margin-top:12px"></div>
+
+    <div class="rec-zone" style="margin-top:18px">
+      <div>
+        <div class="rec-btn-wrap" id="recWrap">
+          <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+          <button class="rec-btn" id="recBtn" onclick="toggleRec()" title="Grabar / detener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+          </button>
+        </div>
+        <div class="rec-status" id="recStatus">Pulsa para grabar</div>
+      </div>
+      <div>
+        <textarea class="transcript" id="transcript" placeholder="La transcripción aparecerá aquí en tiempo real..."></textarea>
+        <div class="interim" id="interim"></div>
+        <div class="btnbar">
+          <button class="btn primary" id="btnProcess" onclick="processTranscript()">🤖 Procesar con IA</button>
+          <button class="btn" onclick="clearTranscript()">Limpiar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="evalContainer"></div>
+
+</section>
+
+<!-- ══════════ RESULTADOS ══════════ -->
+<section class="view" id="view-resultados">
+  <div class="card">
+    <h2>Evaluaciones validadas</h2>
+    <p class="hint">Cada fila corresponde a un alumno/a y una práctica. Todo queda guardado en este navegador hasta que lo exportes.</p>
+    <div id="evalsTable"></div>
+    <div class="btnbar">
+      <button class="btn primary" id="btnExport" onclick="exportXLSX()">⬇️ Exportar Excel (.xlsx)</button>
+      <button class="btn danger" onclick="clearEvals()">Borrar todas</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* ════════════════ ESTADO Y PERSISTENCIA ════════════════ */
+const LS = { key:'ia_openai_key', rubrica:'estancias_rubrica', alumnos:'estancias_alumnos', evals:'estancias_evaluaciones', practicas:'estancias_practicas' };
+let state = { rubrica:null, alumnos:[], evals:[], practicas:[] };
+let currentEval = null;          // resultado de la IA pendiente de validar
+let parsedSheet = null;          // datos del excel de alumnos antes de importar
+
+function loadState(){
+  try{ state.rubrica  = JSON.parse(localStorage.getItem(LS.rubrica))  || null; }catch(e){ state.rubrica=null; }
+  try{ state.alumnos  = JSON.parse(localStorage.getItem(LS.alumnos))  || []; }catch(e){ state.alumnos=[]; }
+  try{ state.evals    = JSON.parse(localStorage.getItem(LS.evals))    || []; }catch(e){ state.evals=[]; }
+  try{ state.practicas= JSON.parse(localStorage.getItem(LS.practicas))|| []; }catch(e){ state.practicas=[]; }
+}
+function persist(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+/* ════════════════ UTILIDADES UI ════════════════ */
+function $(id){ return document.getElementById(id); }
+function toast(msg, isErr){
+  const t=$('toast'); t.textContent=msg; t.className='show'+(isErr?' err':'');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.className='',3800);
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function busy(btn,on,label){
+  if(on){ btn.dataset.txt=btn.innerHTML; btn.innerHTML='<span class="spinner"></span>'+label; btn.disabled=true; }
+  else{ btn.innerHTML=btn.dataset.txt; btn.disabled=false; }
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('section.view').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); $('view-'+b.dataset.view).classList.add('active');
+    if(b.dataset.view==='evaluar'){ renderPracticaSelect(); renderProgress(); }
+    if(b.dataset.view==='resultados'){ renderEvalsTable(); }
+  };
+});
+function checkConfigDot(){
+  const ok = localStorage.getItem(LS.key) && state.rubrica && state.alumnos.length>0;
+  $('cfgDot').hidden = !!ok;
+}
+
+/* ════════════════ CLAVE API ════════════════ */
+function saveKey(){
+  const v=$('apiKey').value.trim();
+  if(!v){ toast('Introduce una clave válida', true); return; }
+  localStorage.setItem(LS.key, v);
+  renderKeyStatus(); checkConfigDot(); toast('Clave guardada en este navegador');
+}
+function renderKeyStatus(){
+  const k=localStorage.getItem(LS.key);
+  $('keyStatus').innerHTML = k
+    ? '<span class="pill">✓ Clave guardada ('+esc(k.slice(0,7))+'···'+esc(k.slice(-4))+')</span>'
+    : '<span class="pill warn">Sin clave: la generación de rúbrica y la estructuración no funcionarán</span>';
+  if(k) $('apiKey').value=k;
+}
+
+/* ════════════════ LLAMADAS A OPENAI ════════════════ */
+async function callOpenAI(system, user, maxTokens){
+  const key=localStorage.getItem(LS.key);
+  if(!key) throw new Error('Falta la clave API. Guárdala en Configuración.');
+  const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+key },
+    body: JSON.stringify({
+      model:'gpt-4o-mini', temperature:0.2, max_tokens:maxTokens||1500,
+      response_format:{ type:'json_object' },
+      messages:[ {role:'system',content:system}, {role:'user',content:user} ]
+    })
+  }).catch(()=>{ throw new Error('Sin conexión con la API. Revisa tu red.'); });
+  if(!resp.ok){
+    let msg='Error '+resp.status+' de la API.';
+    if(resp.status===401) msg='Clave API no válida o revocada (401).';
+    else if(resp.status===429) msg='Límite de peticiones o saldo agotado (429). Espera unos segundos y reintenta.';
+    else if(resp.status>=500) msg='Error temporal del servidor de OpenAI ('+resp.status+'). Reintenta.';
+    throw new Error(msg);
+  }
+  const data = await resp.json();
+  const raw = (data.choices?.[0]?.message?.content || '').replace(/```json|```/g,'').trim();
+  try{ return JSON.parse(raw); }
+  catch(e){ throw new Error('La IA devolvió un formato inesperado. Reintenta (respuesta: '+raw.slice(0,120)+'...)'); }
+}
+
+/* ════════════════ RÚBRICA: EXTRACCIÓN DE TEXTO DEL ARCHIVO ════════════════ */
+async function extractFileText(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const buf=await file.arrayBuffer();
+  if(ext==='pdf'){
+    if(!window.pdfjsLib) throw new Error('No se pudo cargar el lector de PDF (revisa tu conexión).');
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let t='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const c=await page.getTextContent();
+      t+=c.items.map(it=>it.str).join(' ')+'\n';
+    }
+    if(t.trim().length<30) throw new Error('El PDF parece escaneado (sin texto seleccionable). Pega el contenido a mano o usa un PDF con texto.');
+    return t;
+  }
+  if(ext==='docx'){
+    const res=await mammoth.extractRawText({arrayBuffer:buf});
+    return res.value;
+  }
+  if(ext==='doc') throw new Error('Los .doc antiguos no se pueden leer en el navegador. Guárdalo como .docx o PDF.');
+  return new TextDecoder('utf-8').decode(buf);
+}
+
+$('rubricFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    $('rubricStatus').innerHTML='<span class="pill">Leyendo '+esc(f.name)+'...</span>';
+    const text=await extractFileText(f);
+    $('rubricText').value=text.slice(0,15000);
+    $('rubricStatus').innerHTML='<span class="pill">✓ '+esc(f.name)+' leído ('+text.length+' caracteres). Pulsa «Generar rúbrica con IA».</span>';
+  }catch(err){
+    $('rubricStatus').innerHTML='<span class="pill err">'+esc(err.message)+'</span>';
+  }
+  e.target.value='';
+});
+
+/* ════════════════ RÚBRICA: GENERACIÓN CON IA ════════════════ */
+const RUBRIC_SYSTEM = `Eres un experto en evaluación de prácticas clínicas universitarias (Estancias con pacientes reales, 3º y 4º curso de ciencias de la salud).
+A partir del texto del usuario (una rúbrica existente, apuntes de una reunión o una simple descripción), genera una rúbrica de evaluación por competencias.
+Reglas:
+- Entre 4 y 8 competencias, con nombre breve y descripción de una frase.
+- Entre 3 y 5 niveles ordenados de MEJOR a PEOR, y añade SIEMPRE "No observado" como último nivel.
+- Si el texto ya contiene competencias o niveles, respétalos; solo estructura y completa lo que falte.
+- Responde ÚNICAMENTE con JSON válido, sin markdown:
+{"titulo": string, "niveles": [string], "competencias": [{"nombre": string, "descripcion": string}]}`;
+
+async function generateRubric(){
+  const src=$('rubricText').value.trim();
+  if(!src){ toast('Sube un archivo o describe la rúbrica primero', true); return; }
+  const btn=$('btnGenRubric'); busy(btn,true,'Generando...');
+  try{
+    const r=await callOpenAI(RUBRIC_SYSTEM, src.slice(0,15000), 1200);
+    if(!r.competencias || !Array.isArray(r.competencias) || !r.competencias.length || !Array.isArray(r.niveles))
+      throw new Error('La rúbrica generada no tiene el formato esperado. Reintenta.');
+    if(!r.niveles.some(n=>normalize(n)==='no observado')) r.niveles.push('No observado');
+    state.rubrica={ titulo:r.titulo||'Rúbrica de Estancias', niveles:r.niveles.map(String), competencias:r.competencias.map(c=>({nombre:String(c.nombre||''),descripcion:String(c.descripcion||'')})) };
+    persist(LS.rubrica, state.rubrica);
+    renderRubricEditor(); checkConfigDot();
+    toast('Rúbrica generada. Revísala y edítala si hace falta.');
+  }catch(err){ toast(err.message, true); }
+  busy(btn,false);
+}
+
+function loadExampleRubric(){
+  state.rubrica={
+    titulo:'Rúbrica de Estancias clínicas',
+    niveles:['Excelente','Notable','Suficiente','Insuficiente','No observado'],
+    competencias:[
+      {nombre:'Conocimientos aplicados',descripcion:'Aplica los conocimientos teórico-clínicos al caso real.'},
+      {nombre:'Habilidades técnicas',descripcion:'Ejecuta procedimientos y técnicas con corrección y seguridad.'},
+      {nombre:'Razonamiento clínico',descripcion:'Orienta el diagnóstico y la toma de decisiones de forma justificada.'},
+      {nombre:'Comunicación con el paciente',descripcion:'Se comunica con el paciente y su familia con claridad y empatía.'},
+      {nombre:'Trabajo en equipo',descripcion:'Colabora e interactúa adecuadamente con el personal asistencial.'},
+      {nombre:'Profesionalismo',descripcion:'Puntualidad, ética, iniciativa y actitud durante la práctica.'}
+    ]
+  };
+  persist(LS.rubrica, state.rubrica);
+  renderRubricEditor(); checkConfigDot();
+  toast('Rúbrica de ejemplo cargada');
+}
+
+function renderRubricEditor(){
+  const box=$('rubricEditor');
+  if(!state.rubrica){ box.innerHTML=''; return; }
+  const r=state.rubrica;
+  let html='<label class="field">Título</label><input type="text" id="rubTitulo" value="'+esc(r.titulo)+'">';
+  html+='<label class="field">Niveles (de mejor a peor, separados por comas)</label><input type="text" id="rubNiveles" value="'+esc(r.niveles.join(', '))+'">';
+  html+='<label class="field">Competencias</label>';
+  r.competencias.forEach((c,i)=>{
+    html+='<div class="comp-row">'
+      +'<input type="text" value="'+esc(c.nombre)+'" onchange="state.rubrica.competencias['+i+'].nombre=this.value">'
+      +'<input type="text" value="'+esc(c.descripcion)+'" onchange="state.rubrica.competencias['+i+'].descripcion=this.value">'
+      +'<button title="Eliminar" onclick="removeComp('+i+')">✕</button></div>';
+  });
+  html+='<div class="btnbar"><button class="btn" onclick="addComp()">+ Añadir competencia</button>'
+      +'<button class="btn primary" onclick="saveRubric()">Guardar rúbrica</button></div>';
+  box.innerHTML=html;
+}
+function removeComp(i){ state.rubrica.competencias.splice(i,1); renderRubricEditor(); }
+function addComp(){ state.rubrica.competencias.push({nombre:'',descripcion:''}); renderRubricEditor(); }
+function saveRubric(){
+  state.rubrica.titulo=$('rubTitulo').value.trim()||'Rúbrica de Estancias';
+  state.rubrica.niveles=$('rubNiveles').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!state.rubrica.niveles.some(n=>normalize(n)==='no observado')) state.rubrica.niveles.push('No observado');
+  state.rubrica.competencias=state.rubrica.competencias.filter(c=>c.nombre.trim());
+  if(!state.rubrica.competencias.length){ toast('La rúbrica necesita al menos una competencia', true); return; }
+  persist(LS.rubrica, state.rubrica); renderRubricEditor(); checkConfigDot();
+  toast('Rúbrica guardada');
+}
+
+/* ════════════════ ALUMNOS (EXCEL) ════════════════ */
+$('studentsFile').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!rows.length) throw new Error('El archivo está vacío.');
+      parsedSheet=rows;
+      const headers=rows[0].map((h,i)=>String(h).trim()||('Columna '+(i+1)));
+      const opts=headers.map((h,i)=>'<option value="'+i+'">'+esc(h)+'</option>').join('');
+      $('colName').innerHTML=opts;
+      $('colSurname').innerHTML='<option value="-1">— ninguna —</option>'+opts;
+      const guessName=headers.findIndex(h=>/nombre|alumn/i.test(h));
+      const guessSur=headers.findIndex(h=>/apellid/i.test(h));
+      if(guessName>=0) $('colName').value=guessName;
+      if(guessSur>=0) $('colSurname').value=guessSur;
+      $('colPicker').hidden=false;
+      toast('Archivo leído: elige las columnas y pulsa «Importar alumnos»');
+    }catch(err){ toast('No se pudo leer el Excel: '+err.message, true); }
+  };
+  reader.readAsArrayBuffer(f);
+  e.target.value='';
+});
+
+function importStudents(){
+  if(!parsedSheet) return;
+  const cn=parseInt($('colName').value), cs=parseInt($('colSurname').value);
+  const names=[];
+  for(let i=1;i<parsedSheet.length;i++){
+    const row=parsedSheet[i];
+    let n=String(row[cn]||'').trim();
+    if(cs>=0){ const s=String(row[cs]||'').trim(); if(s) n=(n+' '+s).trim(); }
+    if(n) names.push(n);
+  }
+  if(!names.length){ toast('No se encontraron nombres en esa columna', true); return; }
+  const set=new Set(state.alumnos.map(normalize));
+  names.forEach(n=>{ if(!set.has(normalize(n))){ state.alumnos.push(n); set.add(normalize(n)); } });
+  persist(LS.alumnos, state.alumnos);
+  $('colPicker').hidden=true; parsedSheet=null;
+  renderStudents(); checkConfigDot();
+  toast(state.alumnos.length+' alumnos/as en la lista');
+}
+function addStudent(){
+  const n=$('manualStudent').value.trim(); if(!n) return;
+  if(state.alumnos.some(a=>normalize(a)===normalize(n))){ toast('Ese alumno/a ya está en la lista', true); return; }
+  state.alumnos.push(n); persist(LS.alumnos, state.alumnos);
+  $('manualStudent').value=''; renderStudents(); checkConfigDot();
+}
+function clearStudents(){
+  if(!confirm('¿Vaciar toda la lista de alumnos?')) return;
+  state.alumnos=[]; persist(LS.alumnos, state.alumnos); renderStudents(); checkConfigDot();
+}
+function renderStudents(){
+  $('studentsList').innerHTML=state.alumnos.map(a=>'<span class="chip">'+esc(a)+'</span>').join('');
+  $('studentsBar').hidden=!state.alumnos.length;
+  $('studentsCount').textContent=state.alumnos.length+' alumnos/as';
+}
+function normalize(s){ return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+
+/* ════════════════ PRÁCTICAS ════════════════ */
+function savePracticas(){
+  state.practicas=$('practicasText').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  persist(LS.practicas, state.practicas);
+  $('practicasStatus').innerHTML='<span class="pill">✓ '+state.practicas.length+' prácticas guardadas</span>';
+  renderPracticaSelect();
+}
+function renderPracticaSelect(){
+  const sel=$('selPractica');
+  const prev=sel.value;
+  sel.innerHTML=state.practicas.length
+    ? state.practicas.map(p=>'<option>'+esc(p)+'</option>').join('')
+    : '<option value="">(define las prácticas en Configuración)</option>';
+  if(prev && state.practicas.includes(prev)) sel.value=prev;
+}
+$('selPractica')?.addEventListener('change', renderProgress);
+
+/* ════════════════ RECONOCIMIENTO DE VOZ (WEB SPEECH API) ════════════════ */
+let rec=null, recording=false, finalTx='';
+function setupSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ $('speechWarning').hidden=false; return; }
+  rec=new SR();
+  rec.lang='es-ES'; rec.continuous=true; rec.interimResults=true;
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) finalTx+=r[0].transcript+' ';
+      else interim+=r[0].transcript;
+    }
+    $('transcript').value=finalTx;
+    $('interim').textContent=interim;
+    $('transcript').scrollTop=$('transcript').scrollHeight;
+  };
+  rec.onend=()=>{ if(recording){ try{ rec.start(); }catch(e){} } };
+  rec.onerror=e=>{
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      toast('Permiso de micrófono denegado. Actívalo en el candado de la barra de direcciones.', true);
+      stopRec();
+    }else if(e.error==='network'){
+      toast('El reconocimiento de voz de Google necesita conexión a internet.', true);
+    }
+  };
+}
+function toggleRec(){
+  if(!rec){ $('speechWarning').hidden=false; toast('Reconocimiento de voz no disponible en este navegador', true); return; }
+  recording ? stopRec() : startRec();
+}
+function startRec(){
+  finalTx=$('transcript').value ? $('transcript').value.replace(/\s*$/,' ') : '';
+  try{ rec.start(); }catch(e){}
+  recording=true;
+  $('recWrap').classList.add('recording-on');
+  $('recBtn').classList.add('recording');
+  $('recStatus').textContent='Grabando... pulsa para detener';
+  $('recStatus').classList.add('on');
+}
+function stopRec(){
+  recording=false;
+  try{ rec.stop(); }catch(e){}
+  $('recWrap').classList.remove('recording-on');
+  $('recBtn').classList.remove('recording');
+  $('recStatus').textContent='Pulsa para grabar';
+  $('recStatus').classList.remove('on');
+  $('interim').textContent='';
+}
+function clearTranscript(){ $('transcript').value=''; finalTx=''; $('interim').textContent=''; }
+
+/* ════════════════ ESTRUCTURACIÓN DE LA EVALUACIÓN ════════════════ */
+function buildEvalSystem(){
+  const r=state.rubrica;
+  const comps=r.competencias.map(c=>'- '+c.nombre+': '+c.descripcion).join('\n');
+  return `Eres un evaluador académico experto en prácticas clínicas con pacientes reales (Estancias de 3º y 4º curso de grados en ciencias de la salud).
+Recibes la TRANSCRIPCIÓN de una nota de voz en la que un profesor resume el desempeño de un alumno/a tras una práctica. Tu tarea es ESTRUCTURAR esa información según la rúbrica.
+
+RÚBRICA "${r.titulo}" — niveles de mejor a peor: ${r.niveles.join(' > ')}
+Competencias:
+${comps}
+
+LISTA OFICIAL DE ALUMNOS/AS:
+${JSON.stringify(state.alumnos)}
+
+REGLAS ESTRICTAS:
+1. Identifica a qué alumno/a de la LISTA se refiere la transcripción y devuelve su nombre EXACTO tal y como figura en la lista. Si no puedes identificarlo con seguridad, devuelve null y explícalo en advertencias.
+2. Para cada competencia, asigna un nivel SOLO si la transcripción contiene evidencia explícita, y resume esa evidencia en "evidencia" (parafraseada, breve). Sin evidencia: nivel "No observado" y evidencia null. La ausencia de información NUNCA penaliza al alumno.
+3. No inventes información y no alteres el juicio del profesor: tú estructuras y redactas, no evalúas por tu cuenta.
+4. Elimina cualquier dato que pudiera identificar a un paciente; si lo haces, indícalo en advertencias.
+5. "global_sugerido": propón un nivel global coherente con los niveles asignados (ignora los "No observado"). Es una SUGERENCIA que el profesor validará.
+6. "justificacion": párrafo único de 80-150 palabras, tercera persona, español formal académico y constructivo, apto para que lo lea el propio alumno/a. Sin nombres de pacientes.
+Responde ÚNICAMENTE con JSON válido, sin markdown:
+{"alumno_detectado": string|null, "competencias":[{"nombre": string, "nivel": string, "evidencia": string|null}], "global_sugerido": string, "justificacion": string, "fortalezas":[string], "areas_mejora":[string], "advertencias":[string]}`;
+}
+
+async function processTranscript(){
+  const tx=$('transcript').value.trim();
+  if(!state.rubrica){ toast('Primero genera o carga la rúbrica en Configuración', true); return; }
+  if(!state.alumnos.length){ toast('Primero importa la lista de alumnos en Configuración', true); return; }
+  if(!$('selPractica').value){ toast('Define y selecciona una práctica', true); return; }
+  if(tx.length<25){ toast('La transcripción es demasiado corta para evaluar', true); return; }
+  if(recording) stopRec();
+  const btn=$('btnProcess'); busy(btn,true,'Estructurando...');
+  try{
+    let r;
+    try{ r=await callOpenAI(buildEvalSystem(), 'TRANSCRIPCIÓN:\n'+tx, 1600); }
+    catch(e1){ r=await callOpenAI(buildEvalSystem(), 'TRANSCRIPCIÓN:\n'+tx+'\n\nRecuerda: responde SOLO el JSON pedido.', 1600); }
+    if(!Array.isArray(r.competencias)) throw new Error('Respuesta con formato inesperado. Reintenta.');
+    // Casar alumno detectado con la lista (por si la IA varía tildes o mayúsculas)
+    let alumno=null;
+    if(r.alumno_detectado){
+      alumno=state.alumnos.find(a=>normalize(a)===normalize(r.alumno_detectado))
+           ||state.alumnos.find(a=>normalize(a).includes(normalize(r.alumno_detectado))||normalize(r.alumno_detectado).includes(normalize(a)))
+           ||null;
+    }
+    currentEval={
+      alumno, transcript:tx,
+      practica:$('selPractica').value, curso:$('selCurso').value,
+      fecha:$('selFecha').value||new Date().toISOString().slice(0,10),
+      competencias: state.rubrica.competencias.map(c=>{
+        const found=(r.competencias||[]).find(x=>normalize(x.nombre||'')===normalize(c.nombre));
+        return { nombre:c.nombre,
+                 nivel: found && state.rubrica.niveles.find(n=>normalize(n)===normalize(found.nivel||'')) || 'No observado',
+                 evidencia: found?.evidencia||null };
+      }),
+      global: state.rubrica.niveles.find(n=>normalize(n)===normalize(r.global_sugerido||''))||state.rubrica.niveles[0],
+      justificacion:String(r.justificacion||''),
+      fortalezas:(r.fortalezas||[]).map(String),
+      areas_mejora:(r.areas_mejora||[]).map(String),
+      advertencias:(r.advertencias||[]).map(String)
+    };
+    if(!alumno) currentEval.advertencias.unshift('No se ha podido identificar al alumno/a en la lista: selecciónalo manualmente.');
+    renderEvalCard();
+    $('evalContainer').scrollIntoView({behavior:'smooth'});
+  }catch(err){ toast(err.message, true); }
+  busy(btn,false);
+}
+
+/* ════════════════ TARJETA DE VALIDACIÓN ════════════════ */
+function levelColor(nivel){
+  const niveles=state.rubrica.niveles;
+  const i=niveles.findIndex(n=>normalize(n)===normalize(nivel));
+  if(normalize(nivel)==='no observado') return 'var(--gray-chip)';
+  const scale=['#0E6B5B','#4E8F3A','#B96E0B','#BE4438'];
+  const usable=Math.max(niveles.filter(n=>normalize(n)!=='no observado').length-1,1);
+  return scale[Math.min(Math.round(i/usable*(scale.length-1)), scale.length-1)];
+}
+function chipRow(niveles, selected, onclickTpl){
+  return '<div class="level-chips">'+niveles.map(n=>{
+    const sel=normalize(n)===normalize(selected);
+    const style=sel?'style="background:'+levelColor(n)+'"':'';
+    return '<button class="level-chip'+(sel?' sel':'')+'" '+style+' onclick="'+onclickTpl.replace('%N%', esc(n).replace(/'/g,"\\'"))+'">'+esc(n)+'</button>';
+  }).join('')+'</div>';
+}
+function renderEvalCard(){
+  const box=$('evalContainer');
+  if(!currentEval){ box.innerHTML=''; return; }
+  const e=currentEval;
+  let html='<div class="card eval-card"><h2>Validación del profesor</h2>'
+    +'<p class="hint">La IA sugiere; tú decides. Corrige lo que haga falta y pulsa «Validar y guardar». Solo lo validado entra en el Excel.</p>';
+  // Alumno
+  html+='<div class="row"><div><label class="field">Alumno/a detectado *</label><select id="evAlumno" onchange="currentEval.alumno=this.value||null">'
+    +'<option value="">— selecciona alumno/a —</option>'
+    +state.alumnos.map(a=>'<option '+(a===e.alumno?'selected':'')+'>'+esc(a)+'</option>').join('')
+    +'</select></div>'
+    +'<div><label class="field">Práctica</label><input type="text" value="'+esc(e.practica)+'" disabled></div>'
+    +'<div><label class="field">Fecha</label><input type="date" id="evFecha" value="'+esc(e.fecha)+'" onchange="currentEval.fecha=this.value"></div></div>';
+  // Competencias
+  html+='<label class="field" style="margin-top:16px">Competencias (nivel sugerido + evidencia del audio)</label>';
+  e.competencias.forEach((c,i)=>{
+    html+='<div class="comp-eval"><div class="name">'+esc(c.nombre)+'</div>'
+      +chipRow(state.rubrica.niveles, c.nivel, "setCompLevel("+i+",'%N%')")
+      +(c.evidencia?'<div class="evidence">🗣 '+esc(c.evidencia)+'</div>':'<div class="evidence">Sin evidencia en el audio</div>')
+      +'</div>';
+  });
+  // Global
+  html+='<label class="field" style="margin-top:14px">Valoración global</label>'
+    +chipRow(state.rubrica.niveles.filter(n=>normalize(n)!=='no observado'), e.global, "setGlobal('%N%')");
+  // Textos
+  html+='<label class="field">Justificación (irá al Excel)</label><textarea id="evJust" oninput="currentEval.justificacion=this.value">'+esc(e.justificacion)+'</textarea>';
+  html+='<div class="row"><div><label class="field">Fortalezas (una por línea)</label><textarea id="evFort" oninput="currentEval.fortalezas=this.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)">'+esc(e.fortalezas.join('\n'))+'</textarea></div>'
+    +'<div><label class="field">Áreas de mejora (una por línea)</label><textarea id="evArea" oninput="currentEval.areas_mejora=this.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)">'+esc(e.areas_mejora.join('\n'))+'</textarea></div></div>';
+  // Advertencias
+  if(e.advertencias.length) html+='<div class="warn-list"><b>Advertencias</b><ul>'+e.advertencias.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul></div>';
+  html+='<div class="btnbar">'
+    +'<button class="btn primary" onclick="saveEval()">✓ Validar y guardar</button>'
+    +'<button class="btn" id="btnRegen" onclick="regenJust()">↻ Regenerar justificación con mis correcciones</button>'
+    +'<button class="btn ghost" onclick="currentEval=null;renderEvalCard()">Descartar</button>'
+    +'</div></div>';
+  box.innerHTML=html;
+}
+function setCompLevel(i,n){ currentEval.competencias[i].nivel=n; renderEvalCard(); }
+function setGlobal(n){ currentEval.global=n; renderEvalCard(); }
+
+async function regenJust(){
+  const btn=$('btnRegen'); busy(btn,true,'Redactando...');
+  try{
+    const sys='Eres un evaluador académico de prácticas clínicas. Redacta una justificación de calificación (párrafo único, 80-150 palabras, tercera persona, español formal, constructivo, apto para el alumno, sin datos de pacientes) COHERENTE con los niveles validados por el profesor. Responde SOLO JSON: {"justificacion": string}';
+    const usr='Alumno/a: '+(currentEval.alumno||'(sin identificar)')
+      +'\nNiveles validados: '+currentEval.competencias.map(c=>c.nombre+' = '+c.nivel).join('; ')
+      +'\nValoración global: '+currentEval.global
+      +'\nTranscripción original:\n'+currentEval.transcript;
+    const r=await callOpenAI(sys, usr, 500);
+    if(r.justificacion){ currentEval.justificacion=String(r.justificacion); renderEvalCard(); toast('Justificación actualizada'); }
+  }catch(err){ toast(err.message, true); }
+  const b=$('btnRegen'); if(b && b.disabled) busy(b,false);
+}
+
+function saveEval(){
+  const e=currentEval;
+  if(!e.alumno){ toast('Selecciona al alumno/a antes de guardar', true); return; }
+  if(!e.justificacion.trim()){ toast('La justificación no puede estar vacía', true); return; }
+  const dup=state.evals.find(x=>normalize(x.alumno)===normalize(e.alumno)&&x.practica===e.practica);
+  if(dup && !confirm('Ya existe una evaluación de '+e.alumno+' en esta práctica. ¿Guardar otra igualmente?')) return;
+  state.evals.push({ id:Date.now(), validadoEl:new Date().toISOString(),
+    alumno:e.alumno, curso:e.curso, practica:e.practica, fecha:e.fecha,
+    competencias:e.competencias, global:e.global, justificacion:e.justificacion,
+    fortalezas:e.fortalezas, areas_mejora:e.areas_mejora, advertencias:e.advertencias });
+  persist(LS.evals, state.evals);
+  currentEval=null; renderEvalCard(); clearTranscript(); renderProgress();
+  toast('Evaluación de '+e.alumno+' guardada ✓ — siguiente audio');
+}
+
+/* ════════════════ PROGRESO POR PRÁCTICA ════════════════ */
+function renderProgress(){
+  const box=$('practicaProgress'); if(!box) return;
+  const p=$('selPractica').value;
+  if(!p || !state.alumnos.length){ box.innerHTML=''; return; }
+  const done=new Set(state.evals.filter(e=>e.practica===p).map(e=>normalize(e.alumno)));
+  const total=state.alumnos.length, n=state.alumnos.filter(a=>done.has(normalize(a))).length;
+  let html='<div class="small"><b>'+n+' de '+total+'</b> alumnos/as evaluados en «'+esc(p)+'»</div>'
+    +'<div class="progress-bar"><i style="width:'+(total?Math.round(n/total*100):0)+'%"></i></div>'
+    +'<div class="chips">'+state.alumnos.map(a=>'<span class="chip'+(done.has(normalize(a))?' done':'')+'">'+esc(a)+'</span>').join('')+'</div>';
+  box.innerHTML=html;
+}
+
+/* ════════════════ RESULTADOS Y EXPORT ════════════════ */
+function renderEvalsTable(){
+  const box=$('evalsTable');
+  if(!state.evals.length){ box.innerHTML='<p class="small">Todavía no hay evaluaciones validadas. Ve a la pestaña «Evaluar» para empezar.</p>'; $('btnExport').disabled=true; return; }
+  $('btnExport').disabled=false;
+  let html='<table><thead><tr><th>Alumno/a</th><th>Curso</th><th>Práctica</th><th>Fecha</th><th>Global</th><th></th></tr></thead><tbody>';
+  state.evals.slice().reverse().forEach(e=>{
+    html+='<tr><td><b>'+esc(e.alumno)+'</b></td><td>'+esc(e.curso)+'</td><td>'+esc(e.practica)+'</td><td>'+esc(e.fecha)+'</td>'
+      +'<td><span class="pill" style="background:'+(state.rubrica?levelColor(e.global):'var(--primary-soft)')+';color:#fff;border:none">'+esc(e.global)+'</span></td>'
+      +'<td><button class="btn ghost" onclick="deleteEval('+e.id+')">Eliminar</button></td></tr>';
+  });
+  html+='</tbody></table>';
+  box.innerHTML=html;
+}
+function deleteEval(id){
+  if(!confirm('¿Eliminar esta evaluación?')) return;
+  state.evals=state.evals.filter(e=>e.id!==id);
+  persist(LS.evals, state.evals); renderEvalsTable(); renderProgress();
+}
+function clearEvals(){
+  if(!confirm('¿Borrar TODAS las evaluaciones guardadas? Esta acción no se puede deshacer.')) return;
+  state.evals=[]; persist(LS.evals, state.evals); renderEvalsTable(); renderProgress();
+}
+function exportXLSX(){
+  if(!state.evals.length) return;
+  // columnas de competencias: rúbrica actual + cualquier otra que aparezca en evaluaciones antiguas
+  const compNames=[];
+  (state.rubrica?.competencias||[]).forEach(c=>compNames.push(c.nombre));
+  state.evals.forEach(e=>e.competencias.forEach(c=>{ if(!compNames.some(n=>normalize(n)===normalize(c.nombre))) compNames.push(c.nombre); }));
+  const header=['Alumno/a','Curso','Práctica','Fecha',...compNames,'Valoración global','Justificación','Fortalezas','Áreas de mejora'];
+  const rows=state.evals.map(e=>{
+    const byName={}; e.competencias.forEach(c=>byName[normalize(c.nombre)]=c.nivel);
+    return [ e.alumno, e.curso, e.practica, e.fecha,
+      ...compNames.map(n=>byName[normalize(n)]||''),
+      e.global, e.justificacion, e.fortalezas.join(' · '), e.areas_mejora.join(' · ') ];
+  });
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=header.map((h,i)=>({wch: h==='Justificación'?70 : (i>=4&&i<4+compNames.length)?14 : 20}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Estancias 2026-27');
+  XLSX.writeFile(wb, 'evaluaciones_estancias_2026-27.xlsx');
+  toast('Excel exportado');
+}
+
+/* ════════════════ INICIO ════════════════ */
+loadState();
+renderKeyStatus();
+renderRubricEditor();
+renderStudents();
+$('practicasText').value=state.practicas.join('\n');
+if(state.practicas.length) $('practicasStatus').innerHTML='<span class="pill">✓ '+state.practicas.length+' prácticas guardadas</span>';
+renderPracticaSelect();
+$('selFecha').value=new Date().toISOString().slice(0,10);
+setupSpeech();
+checkConfigDot();
+</script>
+</body>
+</html>
